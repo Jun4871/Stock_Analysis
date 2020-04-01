@@ -1,0 +1,754 @@
+---
+title: "주식시장 동향 리포트"
+output: 
+  flexdashboard::flex_dashboard:
+    orientation: columns
+    theme: lumen
+    vertical_layout: fill
+    source: embed
+    logo: emoney2.png
+    navbar:
+      - { icon: "fa-registered", href: "https://rpubs.com/Ryukyungjun", align: right }
+      - { icon: "fa-rss", href: "https://liujingjun.tistory.com/", align: right }
+      - { icon: "fa-github", href: "https://github.com/Jun4871/", align: right }  
+---
+
+
+```{r setup, include=FALSE}
+library(flexdashboard)
+library(readr)
+library(tidyverse)
+library(lubridate)
+library(plotly)
+# library(leaflet)
+# library(httr)
+# library(jsonlite)
+
+## 데이터 불러 오기
+
+krx_idx <- read.csv("KRX.csv", fileEncoding = "euc-kr") # 각 컬럼을 날짜형식으로 바꿔주자. 
+KOSDAQ_idx <- read.csv("KOSDAQ.csv", fileEncoding = "euc-kr") # 각 컬럼을 날짜형식으로 바꿔주자. 
+KOSPI_idx <- read.csv("KOSPI.csv", fileEncoding = "euc-kr")
+
+```
+
+
+
+KRX
+=======================================================================
+
+Inputs {.sidebar}
+-------------------------------------
+
+한국거래소(韓國去來所, Korea Exchange, KRX)는 증권 및 파생상품 등의 공정한 가격 형성과 원활한 매매 및 효율적 시장관리를 목적으로 설립된 기관이다. 한국거래소는 2005년 1월 27일, 기존의 한국증권거래소, 한국선물거래소, 코스닥증권시장, 코스닥위원회 등 4개 기관이 통합되어 설립된 주식회사이며 본사 사옥은 부산광역시 남구 문현금융로 40(문현동, 부산국제금융센터)에 위치하고 있다.
+
+Column {data-width=650}
+-----------------------------------------------------------------------
+
+### KRX 주요주가 지수
+
+```{r}
+## KRX ----
+
+# KRX 데이터를 sample_set에 할당
+sample_set <- krx_idx
+
+# sample_set의 열을 행으로 가져온 후, krx_idx_2 에 할당
+krx_idx_2 <-  sample_set %>% 
+  t()
+
+# krx_idx_2의 행을 krx_idx_2의 열로 지정
+colnames(krx_idx_2) <- krx_idx_2[1,]
+
+# krx_idx_2의 행을 뺀 것으로 krx_idx_2에 할당
+krx_idx_2 <- krx_idx_2[-1,]
+
+# krx_idx_2에 "Date"라는 컬럼을 추가, 이 컬럼은 krx_idx_2의 행의 이름과 krx_idx_2가 합쳐진 것
+krx_idx_2 <- cbind("Date" = rownames(krx_idx_2),krx_idx_2)
+
+# krx_idx_2의 행이름을 NULL로 지정 
+rownames(krx_idx_2) <- NULL
+
+# krx_idx_2 에 krx_idx_2를 tibble 화 시킨 후 할당
+krx_idx_2 <- krx_idx_2 %>% 
+  as_tibble()
+
+# krx_idx_2에 krx_idx_2에서 2~5번째 열을 제거 한 후 할당
+krx_idx_2 <- krx_idx_2[,-c(2:5)]
+
+# date_month라는 변수에 krx_idx_2의 Date 라는 컬럼에거 문자열 "X"와 '..'을 제거하고 '-'를 삽입 후 할당
+date_month <- krx_idx_2$Date %>% 
+  str_remove_all("X") %>% 
+  str_replace_all("\\.\\.","-")
+
+# date_month 에 date_month 에서 '-01' 문자열과 붙여준 후 할당
+date_month <- paste0(date_month, "-01") 
+
+# date_month 에 data_month 를 날짜형식으로 바꾼 후 할당
+date_month <- date_month %>% 
+  ymd()
+
+# krx_idx_2의 Date 컬럼을 date_month 로 변경 
+krx_idx_2$Date <- date_month
+
+# krx_idx_2의 첫번째 열을 제거하고, sapply함수를 이용해 krx_idx_2
+# sapply는 결괏값이 한 개인 경우 백터. 함수 결괏값이 같은 길이의 백터라면 행렬. 그 밖의 경우에는 리스트로 반환한다. 
+krx_idx_2[,-1] <- sapply(krx_idx_2[,-1], as.numeric) %>% 
+  as_tibble()
+
+# krx_idx_2 에서 NA 값이 없는 데이터만 모아서 할당. 
+krx_idx_2 <- krx_idx_2 %>% 
+  drop_na()
+
+
+# krx_idx_2 를 sample_df_22 에 할당
+sample_df_22 <- krx_idx_2
+
+# sample_df_22에 sample_df_22에서 "종목"을 정렬 기준으로, "주가"를 값 기준으로 정하고, 나열된 종목을 값과 매치시켜 sample_df_22에 할당.
+# 날짜별로 정렬
+sample_df_22 <- gather(data = sample_df_22, key="종목",value= "주가",
+                       `KRX 자동차`, `KRX 반도체`, `KRX 헬스케어`, `KRX 은행`,
+                       `KRX 에너지화학`, `KRX 철강`, `KRX 방송통신`, `KRX 건설` ,`KRX 증권` ,`KRX 기계장비`, `KRX 보험`, `KRX 운송`,
+                       `KRX 경기소비재`, `KRX 필수소비재`, `KRX IT소프트웨어`, `KRX IT하드웨어`, `KRX 유틸리티`) %>% 
+  arrange(Date)
+
+# sample_df_22의 종목을 팩터화 시켜서 다시 sample_df_22의 종목에 할당 
+sample_df_22$종목 <- as_factor(sample_df_22$종목)
+
+# sample_df_22에 sample_df_22 에서 새 컬럼 'year'과 'month'를 생정 후 할당. 이것들은 sample_df_df_22 의 Date에서 연과 월말 추출한 것.
+sample_df_22 <- sample_df_22 %>% 
+  mutate(year = year(Date),
+         month = month(Date))
+
+# sample_df_22_barplot 에 sample_df_22에서 연도와 종목을 기준으로 주가 평균을 구해 할당. 
+sample_df_22_barplot <- sample_df_22 %>% 
+  group_by(year, 종목) %>% 
+  summarise(주가평균 = mean(주가))
+
+# sample_df_22_barplt 에서 x축을 연도로, y축을 주가평균으로, 범주와 컬러는 종목으로 그래프한 값을 sample_df_22_barplot 할당.
+sample_df_22_barplot %>% 
+  ggplot(aes( x = year, y = 주가평균, group = 종목, colour = 종목)) +
+  theme_bw() +
+  geom_line()
+
+
+# sample_df_22의 데이터로 ggplot에서 x를 Date, y를 주가, group을 종목, colur을 종목으로 지정한 후 asdf에 할당. 
+asdf <- sample_df_22 %>% 
+  ggplot(aes( x = Date, y = 주가, group = 종목, colour = 종목)) +
+  theme_bw() +
+  geom_line() 
+ 
+
+
+ggplotly(asdf)
+
+
+
+```
+
+
+
+코스닥
+=======================================================================
+
+Inputs {.sidebar}
+-------------------------------------
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### A) KOSDAQ, KOSDAQ 150, KOSDAQ IT
+
+```{r}
+## 코스닥 시리즈 1~3 ---- 
+# sample_set 에 KOSDAQ_idx의 1~3행을 할당. 
+sample_set <- KOSDAQ_idx[1:3,]
+
+
+krx_idx_2 <-  sample_set %>% 
+  t()
+
+colnames(krx_idx_2) <- krx_idx_2[1,]
+
+krx_idx_2 <- krx_idx_2[-c(1:2),]
+
+
+krx_idx_2 <- cbind("Date" = rownames(krx_idx_2),krx_idx_2)
+
+rownames(krx_idx_2) <- NULL
+
+krx_idx_2 <- krx_idx_2 %>% 
+  as_tibble()
+
+# krx_idx_2 <- krx_idx_2[,-c(2:5)]
+
+
+date_month <- krx_idx_2$Date %>% 
+  str_remove_all("X") %>% 
+  str_replace_all("\\.\\.","-")
+
+date_month <- paste0(date_month, "-01") 
+
+
+date_month <- date_month %>% 
+  ymd()
+
+krx_idx_2$Date <- date_month
+
+
+krx_idx_2[,-1] <- sapply(krx_idx_2[,-1], as.numeric) %>% 
+  as_tibble()
+
+krx_idx_2 <- krx_idx_2 %>%
+  drop_na()
+
+sample_df_22 <- krx_idx_2
+
+sample_df_22 <- gather(data = sample_df_22, key="종목",value= "주가",
+                       KOSDAQ, `KOSDAQ 150`, `KOSDAQ IT`) %>% 
+  arrange(Date)
+
+sample_df_22$종목 <- as_factor(sample_df_22$종목)
+
+#### ggplot 전처리
+
+sample_df_22 <- sample_df_22 %>% 
+  mutate(year = year(Date),
+         month = month(Date))
+
+
+sample_df_22_barplot <- sample_df_22 %>% 
+  group_by(year, 종목) %>% 
+  summarise(주가평균 = mean(주가))
+
+## 
+sample_df_22_barplot %>% 
+  ggplot(aes( x = year, y = 주가평균)) +
+  theme_bw() +
+  geom_line()
+
+
+
+asdf <- sample_df_22 %>% 
+  ggplot(aes( x = Date, y = 주가, group = 종목, colour = 종목)) +
+  theme_bw() +
+  geom_line()
+
+
+ggplotly(asdf)
+
+```
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### KOSDAQ 기업부별 차트 
+
+```{r}
+## 코스닥 시리즈 4~7 ---- 
+sample_set <- KOSDAQ_idx[4:7,]
+
+
+krx_idx_2 <-  sample_set %>% 
+  t()
+
+colnames(krx_idx_2) <- krx_idx_2[2,]
+
+krx_idx_2 <- krx_idx_2[-c(1:2),]
+
+
+krx_idx_2 <- cbind("Date" = rownames(krx_idx_2),krx_idx_2)
+
+rownames(krx_idx_2) <- NULL
+
+krx_idx_2 <- krx_idx_2 %>% 
+  as_tibble()
+
+# krx_idx_2 <- krx_idx_2[,-c(2:5)]
+
+
+date_month <- krx_idx_2$Date %>% 
+  str_remove_all("X") %>% 
+  str_replace_all("\\.\\.","-")
+
+date_month <- paste0(date_month, "-01") 
+
+
+date_month <- date_month %>% 
+  ymd()
+
+krx_idx_2$Date <- date_month
+
+
+krx_idx_2[,-1] <- sapply(krx_idx_2[,-1], as.numeric) %>% 
+  as_tibble()
+
+krx_idx_2 <- krx_idx_2 %>%
+  drop_na()
+
+sample_df_22 <- krx_idx_2
+
+sample_df_22 <- gather(data = sample_df_22, key="종목",value= "주가",
+                       `KOSDAQ 우량기업부`, `KOSDAQ 벤처기업부`, `KOSDAQ 중견기업부`, `KOSDAQ 기술성장기업부`) %>% 
+  arrange(Date)
+
+sample_df_22$종목 <- as_factor(sample_df_22$종목)
+
+#### ggplot 전처리
+
+sample_df_22 <- sample_df_22 %>% 
+  mutate(year = year(Date),
+         month = month(Date))
+
+
+sample_df_22_barplot <- sample_df_22 %>% 
+  group_by(year, 종목) %>% 
+  summarise(주가평균 = mean(주가))
+
+## 
+sample_df_22_barplot %>% 
+  ggplot(aes( x = year, y = 주가평균, group = 종목, colour = 종목)) +
+  theme_bw() +
+  geom_line()
+
+
+
+asdf <- sample_df_22 %>% 
+  ggplot(aes( x = Date, y = 주가, group = 종목, colour = 종목)) +
+  theme_bw() +
+  geom_line()
+
+
+ggplotly(asdf)
+
+
+```
+
+### KOSDAQ 규모별 차트 
+
+```{r}
+## 코스닥 시리즈 8~10 ---- 
+sample_set <- KOSDAQ_idx[8:10,]
+
+
+krx_idx_2 <-  sample_set %>% 
+  t()
+
+colnames(krx_idx_2) <- krx_idx_2[2,]
+
+krx_idx_2 <- krx_idx_2[-c(1:2),]
+
+
+krx_idx_2 <- cbind("Date" = rownames(krx_idx_2),krx_idx_2)
+
+rownames(krx_idx_2) <- NULL
+
+krx_idx_2 <- krx_idx_2 %>% 
+  as_tibble()
+
+# krx_idx_2 <- krx_idx_2[,-c(2:5)]
+
+
+date_month <- krx_idx_2$Date %>% 
+  str_remove_all("X") %>% 
+  str_replace_all("\\.\\.","-")
+
+date_month <- paste0(date_month, "-01") 
+
+
+date_month <- date_month %>% 
+  ymd()
+
+krx_idx_2$Date <- date_month
+
+
+krx_idx_2[,-1] <- sapply(krx_idx_2[,-1], as.numeric) %>% 
+  as_tibble()
+
+# krx_idx_2 <- krx_idx_2 %>% 
+# drop_na()
+
+sample_df_22 <- krx_idx_2
+
+sample_df_22 <- gather(data = sample_df_22, key="종목",value= "주가",
+                       `코스닥 대형주`, `코스닥 중형주`, `코스닥 소형주`) %>% 
+  arrange(Date)
+
+sample_df_22$종목 <- as_factor(sample_df_22$종목)
+
+#### ggplot 전처리
+
+sample_df_22 <- sample_df_22 %>% 
+  mutate(year = year(Date),
+         month = month(Date))
+
+
+sample_df_22_barplot <- sample_df_22 %>% 
+  group_by(year, 종목) %>% 
+  summarise(주가평균 = mean(주가))
+
+## 
+sample_df_22_barplot %>% 
+  ggplot(aes( x = year, y = 주가평균, group = 종목, colour = 종목)) +
+  theme_bw() +
+  geom_line()
+
+
+
+asdf <- sample_df_22 %>% 
+  ggplot(aes( x = Date, y = 주가, group = 종목, colour = 종목)) +
+  theme_bw() +
+  geom_line()
+
+
+ggplotly(asdf)
+
+
+```
+
+코스피
+=======================================================================
+
+Inputs {.sidebar}
+-------------------------------------
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+### KOSPI, 200, 100, 50, V-KOSPI 200 
+
+```{r}
+## 코스피 시리즈 1~5 ---- 
+sample_set <- KOSPI_idx[1:5,]
+
+
+krx_idx_2 <-  sample_set %>% 
+  t()
+
+colnames(krx_idx_2) <- krx_idx_2[1,]
+
+krx_idx_2 <- krx_idx_2[-c(1:2),]
+
+
+krx_idx_2 <- cbind("Date" = rownames(krx_idx_2),krx_idx_2)
+
+rownames(krx_idx_2) <- NULL
+
+krx_idx_2 <- krx_idx_2 %>% 
+  as_tibble()
+
+# krx_idx_2 <- krx_idx_2[,-c(2:5)]
+
+
+date_month <- krx_idx_2$Date %>% 
+  str_remove_all("X") %>% 
+  str_replace_all("\\.\\.","-")
+
+date_month <- paste0(date_month, "-01") 
+
+
+date_month <- date_month %>% 
+  ymd()
+
+krx_idx_2$Date <- date_month
+
+
+krx_idx_2[,-1] <- sapply(krx_idx_2[,-1], as.numeric) %>% 
+  as_tibble()
+
+krx_idx_2 <- krx_idx_2 %>%
+  drop_na()
+
+sample_df_22 <- krx_idx_2
+
+sample_df_22 <- gather(data = sample_df_22, key="종목",value= "주가",
+                       KOSPI, `KOSPI 200`, `V-KOSPI 200`, `KOSPI 100`, `KOSPI 50`) %>% 
+  arrange(Date)
+
+sample_df_22$종목 <- as_factor(sample_df_22$종목)
+
+#### ggplot 전처리
+
+sample_df_22 <- sample_df_22 %>% 
+  mutate(year = year(Date),
+         month = month(Date))
+
+
+sample_df_22_barplot <- sample_df_22 %>% 
+  group_by(year, 종목) %>% 
+  summarise(주가평균 = mean(주가))
+
+## 
+sample_df_22_barplot %>% 
+  ggplot(aes( x = year, y = 주가평균,group = 종목, colour = 종목)) +
+  theme_bw() +
+  geom_line() 
+
+  
+
+
+
+asdf <- sample_df_22 %>% 
+  ggplot(aes( x = Date, y = 주가, group = 종목, colour = 종목)) +
+  theme_bw() +
+  geom_line()
+
+
+ggplotly(asdf)
+
+```
+
+### KOSPI 규모별
+
+```{r}
+## 코스피 시리즈 6~8 ---- 
+sample_set <- KOSPI_idx[6:8,]
+
+
+krx_idx_2 <-  sample_set %>% 
+  t()
+
+colnames(krx_idx_2) <- krx_idx_2[2,]
+
+krx_idx_2 <- krx_idx_2[-c(1:2),]
+
+
+krx_idx_2 <- cbind("Date" = rownames(krx_idx_2),krx_idx_2)
+
+rownames(krx_idx_2) <- NULL
+
+krx_idx_2 <- krx_idx_2 %>% 
+  as_tibble()
+
+# krx_idx_2 <- krx_idx_2[,-c(2:5)]
+
+
+date_month <- krx_idx_2$Date %>% 
+  str_remove_all("X") %>% 
+  str_replace_all("\\.\\.","-")
+
+date_month <- paste0(date_month, "-01") 
+
+
+date_month <- date_month %>% 
+  ymd()
+
+krx_idx_2$Date <- date_month
+
+
+krx_idx_2[,-1] <- sapply(krx_idx_2[,-1], as.numeric) %>% 
+  as_tibble()
+
+krx_idx_2 <- krx_idx_2 %>%
+  drop_na()
+
+sample_df_22 <- krx_idx_2
+
+sample_df_22 <- gather(data = sample_df_22, key="종목",value= "주가",
+                       대형주, 중형주, 소형주) %>% 
+  arrange(Date)
+
+sample_df_22$종목 <- as_factor(sample_df_22$종목)
+
+#### ggplot 전처리
+
+sample_df_22 <- sample_df_22 %>% 
+  mutate(year = year(Date),
+         month = month(Date))
+
+
+sample_df_22_barplot <- sample_df_22 %>% 
+  group_by(year, 종목) %>% 
+  summarise(주가평균 = mean(주가))
+
+## 
+sample_df_22_barplot %>% 
+  ggplot(aes( x = year, y = 주가평균, group = 종목, colour = 종목)) +
+  theme_bw() +
+  geom_line()
+
+
+
+asdf <- sample_df_22 %>% 
+  ggplot(aes( x = Date, y = 주가, group = 종목, colour = 종목)) +
+  theme_bw() +
+  geom_line()
+
+
+ggplotly(asdf)
+
+
+```
+
+
+Column {data-width=500}
+-----------------------------------------------------------------------
+
+###  B
+
+```{r}
+## 코스피 시리즈 9~13 ---- 
+sample_set <- krx_idx[9:13,1:7]
+sample_set <- KOSPI_idx[9:13,]
+
+
+krx_idx_2 <-  sample_set %>% 
+  t()
+
+colnames(krx_idx_2) <- krx_idx_2[1,]
+
+krx_idx_2 <- krx_idx_2[-c(1:2),]
+
+
+krx_idx_2 <- cbind("Date" = rownames(krx_idx_2),krx_idx_2)
+
+rownames(krx_idx_2) <- NULL
+
+krx_idx_2 <- krx_idx_2 %>% 
+  as_tibble()
+
+# krx_idx_2 <- krx_idx_2[,-c(2:5)]
+
+
+date_month <- krx_idx_2$Date %>% 
+  str_remove_all("X") %>% 
+  str_replace_all("\\.\\.","-")
+
+date_month <- paste0(date_month, "-01") 
+
+
+date_month <- date_month %>% 
+  ymd()
+
+krx_idx_2$Date <- date_month
+
+
+krx_idx_2[,-1] <- sapply(krx_idx_2[,-1], as.numeric) %>% 
+  as_tibble()
+
+# krx_idx_2 <- krx_idx_2 %>% 
+# drop_na()
+
+sample_df_22 <- krx_idx_2
+
+sample_df_22 <- gather(data = sample_df_22, key="종목",value= "주가",
+                       `F-KOSPI 200`, `F-KOSPI 200 인버스지수`, `KOSPI 200 레버리지지수`, `KOSPI 200 커버드콜 지수`, `KOSPI 200 프로텍티브풋 지수`) %>% 
+  arrange(Date)
+
+sample_df_22$종목 <- as_factor(sample_df_22$종목)
+
+#### ggplot 전처리
+
+sample_df_22 <- sample_df_22 %>% 
+  mutate(year = year(Date),
+         month = month(Date))
+
+
+sample_df_22_barplot <- sample_df_22 %>% 
+  group_by(year, 종목) %>% 
+  summarise(주가평균 = mean(주가))
+
+## 
+sample_df_22_barplot %>% 
+  ggplot(aes( x = year, y = 주가평균, group = 종목, colour = 종목)) +
+  theme_bw() +
+  geom_line()
+
+
+
+asdf <- sample_df_22 %>% 
+  ggplot(aes( x = Date, y = 주가, group = 종목, colour = 종목)) +
+  theme_bw() +
+  geom_line()
+
+
+ggplotly(asdf)
+
+```
+
+### KOSPI 200, 100, 50 
+
+```{r}
+## 코스피 시리즈 14~16 ---- 
+sample_set <- KOSPI_idx[14:16,]
+
+
+krx_idx_2 <-  sample_set %>% 
+  t()
+
+colnames(krx_idx_2) <- krx_idx_2[2,]
+
+krx_idx_2 <- krx_idx_2[-c(1:2),]
+
+
+krx_idx_2 <- cbind("Date" = rownames(krx_idx_2),krx_idx_2)
+
+rownames(krx_idx_2) <- NULL
+
+krx_idx_2 <- krx_idx_2 %>% 
+  as_tibble()
+
+# krx_idx_2 <- krx_idx_2[,-c(2:5)]
+
+
+date_month <- krx_idx_2$Date %>% 
+  str_remove_all("X") %>% 
+  str_replace_all("\\.\\.","-")
+
+date_month <- paste0(date_month, "-01") 
+
+
+date_month <- date_month %>% 
+  ymd()
+
+krx_idx_2$Date <- date_month
+
+
+krx_idx_2[,-1] <- sapply(krx_idx_2[,-1], as.numeric) %>% 
+  as_tibble()
+
+# krx_idx_2 <- krx_idx_2 %>% 
+# drop_na()
+
+sample_df_22 <- krx_idx_2
+
+sample_df_22 <- gather(data = sample_df_22, key="종목",value= "주가",
+                       `KOSPI 200`, `KOSPI 100`, `KOSPI 50`) %>% 
+  arrange(Date)
+
+sample_df_22$종목 <- as_factor(sample_df_22$종목)
+
+#### ggplot 전처리
+
+sample_df_22 <- sample_df_22 %>% 
+  mutate(year = year(Date),
+         month = month(Date))
+
+
+sample_df_22_barplot <- sample_df_22 %>% 
+  group_by(year, 종목) %>% 
+  summarise(주가평균 = mean(주가))
+
+## 
+sample_df_22_barplot %>% 
+  ggplot(aes( x = year, y = 주가평균, group = 종목, colour = 종목)) +
+  theme_bw() +
+  geom_line()
+
+
+
+asdf <- sample_df_22 %>% 
+  ggplot(aes( x = Date, y = 주가, group = 종목, colour = 종목)) +
+  theme_bw() +
+  geom_line()
+
+
+ggplotly(asdf)
+
+```
+
+Reference & Guide
+=======================================================================
+
+- [Guide document](https://rpubs.com/Ryukyungjun/591469)
+- [국가통계 포털](http://kosis.kr/statisticsList/statisticsListIndex.do?menuId=M_01_01&vwcd=MT_ZTITLE&parmTabId=M_01_01)
